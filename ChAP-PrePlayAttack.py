@@ -641,24 +641,25 @@ def decode_ber_tlv_item(data):
         i += 1
     return tag, i + length, data[i:i+length]
 
-def get_challenge(bytes):
+def get_challenge(bytes, cardservice):
     lc= bytes
     le= 0x00
     apdu= GET_CHALLENGE + [lc,le]
-    response, sw1, sw2= send_apdu(apdu)
+    response, sw1, sw2= send_apdu(apdu, cardservice)
     if check_return(sw1,sw2):
         print 'Random number: ',
         hexprint(response)
     #print 'GET CHAL: %02x%02x %d' % (sw1,sw2,len(response))
 
-def get_UNSize():
-    ret, response = read_record(1,1)    
-    ret, response = read_record(1,2)    
-    ret, response = read_record(2,1)    
-    status, length, track1BM = get_tag("9F62",0)
-    print track1BM  
+def calculate_UNSize(bitmap, numdigits):
+    """calculate the length of the required unpredictable numbers
+    used to calculate the iCVV"""
+    i = int(bitmap) 
+    i = i - ((i >> 1) & 0x55555555)
+    i = i & 0x33333333) + ((i >> 2) & 0x33333333)
+    bitsset = (((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24 
+    return bitsset - numdigits 
     #print 'GET CHAL: %02x%02x %d' % (sw1,sw2,len(response))
-
 
 def verify_pin(pin):
     # construct offline PIN block and verify (plaintext)
@@ -710,7 +711,7 @@ def update_pin_try_counter(tries):
     tag= 0x91 # Issuer Authentication Data
     lc= len(csu) + 1
 
-def generate_ac(type):
+def generate_ac(type, cdoldata, ):
     # generate an application Cryptogram
     if type == TC:
         # populate data with CDOL1
@@ -720,6 +721,7 @@ def generate_ac(type):
     response, sw1, sw2= send_apdu(apdu)
     if check_return(sw1,sw2):
         print 'AC generated!'
+        return response 
         return True
     else:
         hexprint([sw1,sw2])

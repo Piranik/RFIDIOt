@@ -45,6 +45,7 @@ from operator import *
 import struct
 # local imports
 from rfidiot.iso3166 import ISO3166CountryCodes
+from colour import *
 
 # default global options
 BruteforcePrimitives= False
@@ -61,6 +62,7 @@ Verbose= False
 Cdol1= ''
 Cdol2= ''
 CurrentAID= ''
+d = FMT_ESCAPES #print ansi colors
 
 # known AIDs
 # please mail new AIDs to aid@rfidiot.org
@@ -272,11 +274,14 @@ BER_TLV_AFL= 0x14
 
 def hexprint(data):
     index= 0
-
+    out = '' 
     while index < len(data):
-        print '%02x' % data[index],
+        out += '%02x' % data[index]
+        #print '%02x' % data[index],
         index += 1
-    print
+    #print
+    d['output'] = out 
+    print "{cyan}{output}{white} ".format(**d)
 
 def get_tag(data,req):
     "return a tag's data if present"
@@ -322,7 +327,7 @@ def decode_pse(data):
 
     index= 0
     indent= ''
-
+    out = ''
     if OutputFiles:
         file= open('%s-PSE.HEX' % CurrentAID,'w')
         for n in range(len(data)):
@@ -347,10 +352,15 @@ def decode_pse(data):
                 TAGS[tag]
                 taglen= 2
             except:
+                print "{red}".format(**d) 
                 print indent + '  Unrecognised TAG:', 
+                print "{white}".format(**d) 
                 hexprint(data[index:])
                 return
-        print indent + '  %0x:' % tag, TAGS[tag][0],
+        d['tag'] = "%0x:"%tag
+        d['data'] = TAGS[tag][0]  
+        d['indent'] = indent 
+        print "{indent} {green}{tag}{yellow}{data}{white}".format(**d)
         if TAGS[tag][2] == VALUE:
             itemlength= 1
             offset= 0
@@ -358,15 +368,19 @@ def decode_pse(data):
             if(data[index+taglen] & 0x80 == 0): 
                 itemlength = data[index + taglen]
                 offset= 1
-                print '(%d bytes):' % itemlength,
+                d['itemlength'] = '(%d bytes):' % itemlength
+                print "{green}{itemlength}{white}".format(**d) 
+                #print '(%d bytes):' % itemlength,
             else:
-                valuebytelen = data[index+taglen] & 0x7F
+                valuebytelen = data[index+taglen+1] & 0x7F
                 itemlength = 0 
                 for i in range(1,valuebytelen+1):
                     currentval = data[index+taglen+i]
                     itemlength = (itemlength << 8) + currentval   
                 offset = 2  
-                print '(%d bytes):' % itemlength,
+                d['itemlength'] = '(%d bytes):' % itemlength
+                print "{green}{itemlength}{white}".format(**d)
+                #print '(%d bytes):' % itemlength,
         # store CDOLs for later use
         if tag == CDOL1:
             Cdol1= data[index + taglen:index + taglen + itemlength + 1]
@@ -380,8 +394,13 @@ def decode_pse(data):
                 return
                 #decode_ber_tlv_field(data[index + taglen + offset:])
             if TAGS[tag][1] == BINARY or TAGS[tag][1] == VALUE:
-                    if TAGS[tag][2] != TEMPLATE or Verbose:
-                        print '%02x' % data[index + taglen + offset],
+                    out += '%02x' % data[index + taglen + offset]
+                    #if TAGS[tag][2] != TEMPLATE or Verbose:
+                        #out += '%02x' % data[index + taglen + offset]
+                        #d['data'] = '%02x' % data[index + taglen + offset],
+                        #print "{yellow}{data}{white}".format(**d) 
+                        #out += '%02x' % data[index + taglen + offset]
+                        #print '%02x' % data[index + taglen + offset],
             else: 
                 if TAGS[tag][1] == NUMERIC:
                     out += '%02x' % data[index + taglen + offset]
@@ -392,6 +411,8 @@ def decode_pse(data):
                         mixedout.append(data[index + taglen + offset])
             itemlength -= 1
             offset += 1
+        d['out'] = out 
+        print "{cyan}{out}{white}".format(**d) 
         if TAGS[tag][1] == MIXED:
             if isbinary(mixedout):
                 hexprint(mixedout)
@@ -400,12 +421,14 @@ def decode_pse(data):
         if TAGS[tag][1] == BINARY:
             print
         if TAGS[tag][1] == TEXT or TAGS[tag][1] == NUMERIC:
-            print out,
+            #print out,
             if tag == 0x9f42 or tag == 0x5f28:
                 print '(' + ISO3166CountryCodes['%03d' % int(out)] + ')'
             else:
                 print
+
         if TAGS[tag][2] == ITEM:
+            #print "{cyan}{out}{white}".format(**d) 
             index += data[index + taglen] + taglen + 1
         else:
             index += taglen + 1
@@ -423,7 +446,9 @@ def textprint(data):
         else:
             out += '.'
         index += 1
-    print out
+    d['output'] = out
+    print "{yellow}{out}".format(**d) 
+    #print out
 
 def bruteforce_primitives():
     for x in range(256):
@@ -589,7 +614,10 @@ def decode_DOL(data):
                 i += 1
             tag = tag + data[i] 
             i += 1
-        print hex(tag) + ":" + TAGS[tag][0] 
+        d['tag'] = hex(tag)
+        d['detail'] = TAGS[tag][0]
+        print "{green}{tag}:\t{yellow}{detail}{white}".format(**d) 
+        #print hex(tag) + ":" + TAGS[tag][0] 
         i += 1 # skip over length 
 
 def decode_processing_options(data,cardservice):
@@ -610,17 +638,17 @@ def decode_processing_options(data,cardservice):
         # data is in response format 2 (BER-TLV)
         x= 2
         decode_pse(data[x:]) 
-        while x < len(data):
-            tag, fieldlen, value = decode_ber_tlv_item(data[x:])
-            print 'Tag %04X: ' % tag,   
-            print '-- Value: ', hexprint(value)
-            if tag == BER_TLV_AIP:
-                decode_aip(value)
-            if tag == BER_TLV_AFL:
-                sfi, start, end, offline= decode_afl(value)
-                print '    SFI %02X: starting record %02X, ending record %02X; %02X offline data authentication records' % (sfi,start,end,offline)
-                decode_file(sfi,start,end, cardservice)
-            x += fieldlen
+        #while x < len(data):
+        #    tag, fieldlen, value = decode_ber_tlv_item(data[x:])
+        #    print 'Tag %04X: ' % tag,   
+        #    print '-- Value: ', hexprint(value)
+        #    if tag == BER_TLV_AIP:
+        #        decode_aip(value)
+        #    if tag == BER_TLV_AFL:
+        #        sfi, start, end, offline= decode_afl(value)
+        #        print '    SFI %02X: starting record %02X, ending record %02X; %02X offline data authentication records' % (sfi,start,end,offline)
+        #        decode_file(sfi,start,end, cardservice)
+        #    x += fieldlen
 
 def decode_file(sfi,start,end, cardservice):
     for y in range(start,end + 1):

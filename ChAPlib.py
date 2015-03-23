@@ -44,6 +44,8 @@ from operator import *
 import struct
 # local imports
 from rfidiot.iso3166 import ISO3166CountryCodes
+#terminal colors
+from colour import *
 
 # default global options
 BruteforcePrimitives= False
@@ -55,6 +57,8 @@ Debug= False
 Protocol= CardConnection.T0_protocol
 RawOutput= False
 Verbose= False
+
+d = FMT_ESCAPES
 
 # Global VARs for data interchange
 Cdol1= ''
@@ -91,7 +95,7 @@ AAC= 0
 TC= 0x40
 ARQC= 0x80
 GENERATE_AC= [0x80,0xae]
-GET_CHALLENGE= [0x00,0x84,0x00]
+GET_CHALLENGE= [0x00,0x84,0x00,0x00]
 GET_DATA = [0x80, 0xca]
 GET_PROCESSING_OPTIONS = [0x80,0xa8,0x00,0x00]
 GET_RESPONSE = [0x00, 0xC0, 0x00, 0x00 ]
@@ -118,21 +122,23 @@ CDOL2= 0x8d
 TAGS=   {   
     0x4f:['Application Identifier (AID)',BINARY,ITEM],
     0x50:['Application Label',TEXT,ITEM],
+    0x56:['Track 1 Data',TEXT,ITEM],
     0x57:['Track 2 Equivalent Data',BINARY,ITEM],
-    0x5a:['Application Primary Account Number (PAN)',NUMERIC,ITEM],
+    0x5a:['Application Primary Account Number (PAN)',BINARY,ITEM],
+    0x61:['Application Template',BINARY,TEMPLATE],
     0x6f:['File Control Information (FCI) Template',BINARY,TEMPLATE],
     0x70:['Record Template',BINARY,TEMPLATE],
-    0x77:['Response Message Template Format 2',BINARY,ITEM],
+    0x77:['Response Message Template Format 2',BINARY,TEMPLATE],
     0x80:['Response Message Template Format 1',BINARY,ITEM],
     0x82:['Application Interchange Profile',BINARY,ITEM],
     0x83:['Command Template',BER_TLV,ITEM],
     0x84:['DF Name',MIXED,ITEM],
     0x86:['Issuer Script Command',BER_TLV,ITEM],
-    0x87:['Application Priority Indicator',BER_TLV,ITEM],
+    0x87:['Application Priority Indicator',BINARY,ITEM],
     0x88:['Short File Identifier',BINARY,ITEM],
     0x8a:['Authorisation Response Code',BINARY,VALUE],
-    0x8c:['Card Risk Management Data Object List 1 (CDOL1)',BINARY,TEMPLATE],
-    0x8d:['Card Risk Management Data Object List 2 (CDOL2)',BINARY,TEMPLATE],
+    0x8c:['Card Risk Management Data Object List 1 (CDOL1)',BINARY,ITEM],
+    0x8d:['Card Risk Management Data Object List 2 (CDOL2)',BINARY,ITEM],
     0x8e:['Cardholder Verification Method (CVM) List',BINARY,ITEM],
     0x8f:['Certification Authority Public Key Index',BINARY,ITEM],
     0x90:['Issuer Public Key Certificate',BINARY,ITEM],
@@ -154,21 +160,23 @@ TAGS=   {
     0x5f50:['Issuer URL',TEXT,ITEM],
     0x92:['Issuer Public Key Remainder',BINARY,ITEM],
     0x9a:['Transaction Date',BINARY,VALUE],
-    0x9f02:['Amount, Authorised (Numeric)',BINARY,VALUE],
-    0x9f03:['Amount, Other (Numeric)',BINARY,VALUE],
-    0x9f04:['Amount, Other (Binary)',BINARY,VALUE],
+    0x9f02:['Amount, Authorised (Numeric)',BINARY,ITEM],
+    0x9f03:['Amount, Other (Numeric)',BINARY,ITEM],
+    0x9f04:['Amount, Other (Binary)',BINARY,ITEM],
     0x9f05:['Application Discretionary Data',BINARY,ITEM],
     0x9f07:['Application Usage Control',BINARY,ITEM],
     0x9f08:['Application Version Number',BINARY,ITEM],
     0x9f0d:['Issuer Action Code - Default',BINARY,ITEM],
     0x9f0e:['Issuer Action Code - Denial',BINARY,ITEM],
     0x9f0f:['Issuer Action Code - Online',BINARY,ITEM],
+    0x9f10:['Issuer Application Data',BINARY,ITEM],
     0x9f11:['Issuer Code Table Index',BINARY,ITEM],
     0x9f12:['Application Preferred Name',TEXT,ITEM],
     0x9f1a:['Terminal Country Code',BINARY,VALUE],
     0x9f1f:['Track 1 Discretionary Data',TEXT,ITEM],
     0x9f20:['Track 2 Discretionary Data',TEXT,ITEM],
     0x9f26:['Application Cryptogram',BINARY,ITEM],
+    0x9f27:['Cryptogram Information Data',BINARY,ITEM],
     0x9f32:['Issuer Public Key Exponent',BINARY,ITEM],
     0x9f36:['Application Transaction Counter',BINARY,ITEM],
     0x9f37:['Unpredictable Number',BINARY,VALUE],
@@ -176,14 +184,23 @@ TAGS=   {
     0x9f42:['Application Currency Code',NUMERIC,ITEM],
     0x9f44:['Application Currency Exponent',NUMERIC,ITEM],
     0x9f46:['ICC Public Key Certificate', BINARY, ITEM], 
+    0x9f47:['ICC Public Key Exponent',BINARY,ITEM], 
     0x9f4a:['Static Data Authentication Tag List',BINARY,ITEM],
+    0x9f4b:['Signed Dynamic Application Data',BINARY,ITEM],
     0x9f4d:['Log Entry',BINARY,ITEM],
-    0x9f63:['Track 1 Bit Map for UN and ATC (PUNATCTRACK1)', BINARY, VALUE], 
-    0x9f64:['Track 1 Nr of ATC Digits (NATCTRACK1)', BINARY, VALUE],
-    0x9f65:['Track 2 Bit Map for CVC3 (PCVC3TRACK2)', BINARY, VALUE],
-    0x9f66:['Track 2 Bit Map for UN and ATC (PUNATCTRACK2)', BINARY, VALUE], 
+    0x9f60:['CVC3 Track 1', BINARY, ITEM], 
+    0x9f61:['CVC3 Track 2', BINARY, ITEM],
+    0x9f62:['Track 1 Bit Map for CVC3 (PCVC3TRACK1)', BINARY, ITEM],
+    0x9f63:['Track 1 Bit Map for UN and ATC (PUNATCTRACK1)', BINARY, ITEM], 
+    0x9f64:['Track 1 Nr of ATC Digits (NATCTRACK1)', BINARY, ITEM],
+    0x9f65:['Track 2 Bit Map for CVC3 (PCVC3TRACK2)', BINARY, ITEM],
+    0x9f66:['Track 2 Bit Map for UN and ATC (PUNATCTRACK2)', BINARY, ITEM], 
+    0x9f67:['Track 2 Number of ATC Digits (NATCTRACK2)', BINARY, ITEM], 
+    0x9f6b:['Track 2 Data', BINARY, ITEM], 
+    0x9f6c:['Application Version Number (Card)', BINARY, ITEM],
+ 
     #0x9f66:['Card Production Life Cycle',BINARY,ITEM],
-    0xbf0c:['File Control Information (FCI) Issuer Discretionary Data',BER_TLV,TEMPLATE],
+    0xbf0c:['File Control Information (FCI) Issuer Discretionary Data',BINARY,TEMPLATE],
     }
 
 #// conflicting item - need to check
@@ -227,17 +244,25 @@ AIP_MASK= {
 # define dummy transaction values (see TAGS for tag names)
 # for generate_ac
 TRANS_VAL= {
-       0x9f02:[0x00,0x00,0x00,0x00,0x00,0x01],
-       0x9f03:[0x00,0x00,0x00,0x00,0x00,0x00],
-       0x9f1a:[0x08,0x26],
-       0x95:[0x00,0x00,0x00,0x00,0x00],
-       0x5f2a:[0x08,0x26],
-       0x9a:[0x08,0x04,0x01],
-       0x9c:[0x01],
-       0x9f37:[0xba,0xdf,0x00,0x0d],
-       0x9f66:[0xD7,0x20,0xC0,0x00]       
+       0x9f02:[0x00,0x00,0x00,0x00,0x00,0x01], #Amount, Authorised (Numeric)
+       0x9f03:[0x00,0x00,0x00,0x00,0x00,0x00], #Amount, Other (Numeric)
+       0x9f1a:[0x00,0x36], #Terminal Country Code (australia
+       0x95:[0x00,0x00,0x00,0x00,0x00], #Terminal Verification Results
+       0x5f2a:[0x00,0x36], #Transaction Currency Code (australia
+       0x9a:[0x14,0x01,0x01], #Transaction Date
+       0x9c:[0x00], #Transaction Type (goods and service)
+       0x9f37:[0x00,0x00,0x00,0x00], #Unpredictable Number
+       0x9f35:[0x11], #terminal type (online only, attended)
+       0x9f45:[0x00,0x00], #Data Authentication Code 
+       0x9f4c:[0x00,0x00,0x00,0x00,0x00], #ICC Dynamic Number
+       0x9f34:[0x00,0x00,0x00], #Cardholder Verification Method (CVM) Results unknown
+        0x9f4c:[0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00],
+       #0x9f66:[0xD7,0x20,0xC0,0x00],
+       0x91:[0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00], #Issuer Authentication Data
+       0x8a:[0x00,0x00], #Authorisation Response Code
 }
-    
+
+   
 # define SW1 return values
 SW1_RESPONSE_BYTES= 0x61
 SW1_WRONG_LENGTH= 0x6c
@@ -268,10 +293,13 @@ BER_TLV_AFL= 0x14
 
 def hexprint(data):
     index= 0
-
+    out = ''
     while index < len(data):
-        print '%02x' % data[index],
+        #print '%02x' % data[index],
+        out += '%02x ' % data[index]
         index += 1
+    d['output'] = out 
+    "{cyan}{output}{white}".format(**d) 
     print
 
 def get_tag(data,req):
@@ -317,15 +345,15 @@ def decode_pse(data):
     "decode the main PSE select response"
 
     index= 0
+    offset = 0
     indent= ''
-
+    out = ''
     if OutputFiles:
         file= open('%s-PSE.HEX' % CurrentAID,'w')
         for n in range(len(data)):
             file.write('%02X' % data[n])
         file.flush()
         file.close()
-
         
     if RawOutput:
         hexprint(data)
@@ -333,28 +361,37 @@ def decode_pse(data):
         return
 
     while index < len(data):
+        valuebytelen = 0 
         try:
             tag = data[index]
             TAGS[tag]
             taglen= 1
         except:
             try:
-                tag= data[index] * 256 + data[index+1]
+                tag = data[index] * 256 + data[index+1]
                 TAGS[tag]
-                taglen= 2
+                taglen = 2
             except:
-                print indent + '  Unrecognised TAG:', 
+                #print indent + '  Unrecognised TAG:', 
+                out = indent + '  Unrecognised TAG:' 
+                d['output'] = out
+                "{green}{output}{white}".format(**d)
                 hexprint(data[index:])
                 return
-        print indent + '  %0x:' % tag, TAGS[tag][0],
+        d['tag'] = hex(tag)
+        d['description'] = TAGS[tag][0]
+        print "{green}{tag}:\t{yellow}{description}{white}".format(**d) 
+        #print indent + '  %0x:' % tag, TAGS[tag][0],
         if TAGS[tag][2] == VALUE:
             itemlength= 1
             offset= 0
         else:
             if(data[index+taglen] & 0x80 == 0): 
                 itemlength = data[index + taglen]
-                offset= 1
-                print '(%d bytes):' % itemlength,
+                offset = 1 
+                d['output'] = '(%d bytes):' % itemlength
+                print "{green}{output}{white}".format(**d) 
+                #print '(%d bytes):' % itemlength,
             else:
                 valuebytelen = data[index+taglen] & 0x7F
                 itemlength = 0 
@@ -362,12 +399,17 @@ def decode_pse(data):
                     currentval = data[index+taglen+i]
                     itemlength = (itemlength << 8) + currentval   
                 offset = 2  
-                print '(%d bytes):' % itemlength,
+                #index += 1 
+                d['output'] = '(%d bytes):' % itemlength
+                print "{green}{output}{white}".format(**d) 
+                #print "VALUE BYTE LENGTH=",valuebytelen 
+                #print "ITEM LENGTH=",itemlength 
+                #print '(%d bytes):' % itemlength,
         # store CDOLs for later use
         if tag == CDOL1:
             Cdol1= data[index + taglen:index + taglen + itemlength + 1]
         if tag == CDOL2:
-            Cdol2= data[index + taglen:index + taglen + itemlength + 1]
+            Cdol2= data[index + taglen+offset:index + taglen + itemlength + 1]
         out= ''
         mixedout= []
         while itemlength > 0:
@@ -376,8 +418,12 @@ def decode_pse(data):
                 return
                 #decode_ber_tlv_field(data[index + taglen + offset:])
             if TAGS[tag][1] == BINARY or TAGS[tag][1] == VALUE:
-                    if TAGS[tag][2] != TEMPLATE or Verbose:
-                        print '%02x' % data[index + taglen + offset],
+                #print "INDEX=",index
+                #print "TAGLEN=",taglen
+                #print "OFFSET=",offset 
+                out += '%02x ' % data[index + taglen + offset]
+                #if TAGS[tag][2] != TEMPLATE or Verbose:
+                #    print '%02x' % data[index + taglen + offset],
             else: 
                 if TAGS[tag][1] == NUMERIC:
                     out += '%02x' % data[index + taglen + offset]
@@ -388,23 +434,28 @@ def decode_pse(data):
                         mixedout.append(data[index + taglen + offset])
             itemlength -= 1
             offset += 1
+        d['out'] = out 
         if TAGS[tag][1] == MIXED:
             if isbinary(mixedout):
                 hexprint(mixedout)
             else:
                 textprint(mixedout)
         if TAGS[tag][1] == BINARY:
+            print "{cyan}{out}{white}".format(**d) 
             print
         if TAGS[tag][1] == TEXT or TAGS[tag][1] == NUMERIC:
-            print out,
+            print "{cyan}{out}{white}".format(**d) 
+            #print out,
             if tag == 0x9f42 or tag == 0x5f28:
                 print '(' + ISO3166CountryCodes['%03d' % int(out)] + ')'
             else:
                 print
         if TAGS[tag][2] == ITEM:
-            index += data[index + taglen] + taglen + 1
+            #print "{cyan}{out}{white}".format(**d)
+            index += data[index + taglen] + valuebytelen + taglen + 1
         else:
-            index += taglen + 1
+            #print "{cyan}{out}{white}".format(**d)
+            index += taglen+valuebytelen + 1
 #           if TAGS[tag][2] != VALUE:
 #               indent += '   ' 
     indent= ''
@@ -525,9 +576,9 @@ def compute_cryptographic_checksum(un,cardservice):
     apdu= COMPUTE_CRYPTOGRAPHIC_CHECKSUM + [len(unlist)] + unlist + [0x00]
     response, sw1, sw2= send_apdu(apdu,cardservice)
     if check_return(sw1,sw2):
-        return True, response
+        return response
     else:
-        return False, ''
+        return False 
 
 def bruteforce_files(cardservice):
     # now try and brute force records
@@ -563,7 +614,7 @@ def get_processing_options(pdollist, cardservice):
     else:
         return False, "%02x%02x" % (sw1,sw2)
 
-def decode_processing_options(data,cardservice):
+def decode_processing_options(data, cardservice):
     # extract and decode AIP (Application Interchange Profile)
     # and AFL (Application File Locator)
     if data[0] == 0x80:
@@ -611,10 +662,12 @@ def decode_aip(data):
     # byte 1 of AIP is bit masked, byte 2 is RFU
     for x in AIP_MASK.keys():
         if data[0] & x:
-            print '    ' + AIP_MASK[x]
+            d['AIP_DETAILS'] = AIP_MASK[x]
+            print "\t{yellow}{AIP_DETAILS}{white}".format(**d)
+            #print '    ' + AIP_MASK[x]
 
 def decode_afl(data):
-    print '-- deccode_afl data: ', hexprint(data)
+    print '-- decode_afl data: ', hexprint(data)
     sfi= int(data[0] >> 3)
     start= int(data[1])
     end= int(data[2])
@@ -658,15 +711,11 @@ def decode_ber_tlv_item(data):
         i += 1
     return tag, i + length, data[i:i+length]
 
-def get_challenge(bytes):
-    lc= bytes
-    le= 0x00
-    apdu= GET_CHALLENGE + [lc,le]
-    response, sw1, sw2= send_apdu(apdu)
+def get_challenge(cardservice):
+    apdu= GET_CHALLENGE + [0x00] 
+    response, sw1, sw2= send_apdu(apdu, cardservice)
     if check_return(sw1,sw2):
-        print 'Random number: ',
-        hexprint(response)
-    #print 'GET CHAL: %02x%02x %d' % (sw1,sw2,len(response))
+        return response 
 
 def get_bmap():
     #returns the size of the unpredicable number 
@@ -729,16 +778,114 @@ def update_pin_try_counter(tries):
     tag= 0x91 # Issuer Authentication Data
     lc= len(csu) + 1
 
-def generate_ac(type):
-    # generate an application Cryptogram
-    if type == TC:
-        # populate data with CDOL1
-        print 
-    apdu= GENERATE_AC + [lc,type] + data + [le]
-    le= 0x00
-    response, sw1, sw2= send_apdu(apdu)
+def generate_ac(type,acgen, cdollist, cardservice):
+    """
+    generate an application Cryptogram
+    type = AAC, TC or ARQC
+    acgen  = true(DDA/AC requested)/false
+    """
+    P1 = 0x00  
+    if type == AAC:
+        P1 = P1 | 0x00
+    elif type == TC:
+        P1 = P1 | 0x40
+    elif type == ARQC:
+        P1 = P1 | 0x80
+    if acgen == False:
+        P1 = P1 | 0x00
+    if acgen == True:
+        P1 = P1 | 0x10
+    le = 0x00
+    cdoldata = list() 
+    for x in cdollist:
+        print hex(x) 
+        cdoldata.extend(TRANS_VAL[x])
+    lc = len(cdoldata) 
+    apdu = GENERATE_AC + [P1,0x00,lc] + cdoldata + [le]
+    response, sw1, sw2= send_apdu(apdu,cardservice)
     if check_return(sw1,sw2):
         print 'AC generated!'
-        return True
+        return response 
     else:
         hexprint([sw1,sw2])
+
+def decodeCVM(cvmdata):
+    amounttext_X = cvmdata[0:4]
+    amounttext_Y = cvmdata[4:8]
+    print "X=",amounttext_X  
+    print "Y=",amounttext_Y  
+    for i in range(8,len(cvmdata),2):
+        formatCVM(cvmdata[i:i+2])
+
+def formatCVM(cvmdata):
+    #byte 1
+    byte1text = '' 
+    byte2text = ''
+ 
+    if((cvmdata[0] & 0x40) != 0x40):
+        byte1text += "Fail cardholder verification if this CVM is unsuccessful\n"
+    else:
+        byte1text += "Apply succeeding CV Rule if this CVM is unsuccessful\n"
+    if((cvmdata[0] & 0x3f) == 0x3f):
+        byte1text += "This value is not available for use"
+    elif((cvmdata[0] & 0x30) == 0x30):
+        byte1text += "Values in the range 110000-111110 reserved for use by the issuer"
+    elif((cvmdata[0] & 0x20) == 0x20):
+        byte1text +="Values in the range 100000-101111 reserved for use by the individual payment systems"
+    elif((cvmdata[0] & 0x1F) == 0x1F):
+        byte1text += "No CVM required"
+    elif((cvmdata[0] & 0x1E) == 0x1E):
+        byte1text += "Signature (paper)"
+    elif((cvmdata[0] & 0x05) == 0x05):
+        byte1text += "Enciphered PIN verification performed by ICC and signature (paper)"
+    elif((cvmdata[0] & 0x04) == 0x04):
+        byte1text += "Enciphered PIN verification performed by ICC"
+    elif((cvmdata[0] & 0x03) == 0x03):
+        byte1text += "Plaintext PIN verification performed by ICC and signature (paper)"
+    elif((cvmdata[0] & 0x02) == 0x02):
+        byte1text += "Enciphered PIN verified online"
+    elif((cvmdata[0] & 0x01) == 0x01):
+        byte1text += "Plaintext PIN verification performed by ICC"
+    elif((cvmdata[0] & 0x00) == 0x00):
+        byte1text += "Fail CVM processing"
+    #byte 2
+    if(cvmdata[1] == 0x00):
+        byte2text += "Always"
+    elif(cvmdata[1] == 0x01):
+        byte2text += "Always"
+    elif(cvmdata[1] == 0x02):
+        byte2text += "Always"
+    elif(cvmdata[1] == 0x03):
+        byte2text += "Always"
+    elif(cvmdata[1] == 0x04):
+        byte2text += "Always"
+    elif(cvmdata[1] == 0x05):
+        byte2text += "Always"
+    elif(cvmdata[1] == 0x06):
+        byte2text += "Always"
+    elif(cvmdata[1] == 0x07):
+        byte2text += "Always"
+    elif(cvmdata[1] == 0x08):
+        byte2text += "Always"
+    elif(cvmdata[1] == 0x09):
+        byte2text += "Always"
+    elif(cvmdata[1] < 0x80): 
+        byte2text += "RFU"
+    else:
+        byte2text += "Reserved for use by individual payment systems"
+    d['byte1text'] = byte1text
+    d['byte2text'] = byte2text
+    print "{green}CVM Byte 1:\t{yellow}{byte1text}{white}".format(**d)
+    print "{green}CVM Byte 2:\t{yellow}{byte2text}{white}".format(**d)
+      
+def calculate_UNsize(bitmap, numdigits):
+    """calculate the length of the required unpredictable numbers
+    used to calculate the iCVV"""
+    bitsset = bin(int(bitmap)).count("1") 
+    return bitsset - numdigits 
+
+def listtoint(inputlist):
+    result = 0 
+    for i in inputlist:
+        result = (result << 8) | int(i)
+    return result 

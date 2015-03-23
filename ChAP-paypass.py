@@ -37,6 +37,11 @@ from operator import *
 # local imports
 from rfidiot.iso3166 import ISO3166CountryCodes
 from ChAPlib import * 
+from colour import *
+
+#defines for CVV generation technique
+MSR = 0
+MCHIP = 1
 
 def printhelp():
     print '\nChAP-paypass.py - Chip And PIN in Python, paypass edition'
@@ -57,12 +62,12 @@ def printhelp():
     print '\t-r\t\tRaw output - do not interpret EMV data'
     print '\t-t\t\tUse T1 protocol (default is T0)'
     print '\t-v\t\tVerbose on'
-    print '\t-
+    print '\t-C\t\tCard Mode (MSR or MCHIP)' 
     print
 
 try:
     # 'args' will be set to remaining arguments (if any)
-    opts, args  = getopt.getopt(sys.argv[1:],'aAdefoprtv')
+    opts, args  = getopt.getopt(sys.argv[1:],'aAdefoprtvC:')
     for o, a in opts:
         if o == '-a':
             BruteforceAID= True
@@ -90,7 +95,11 @@ try:
             Protocol= CardConnection.T1_protocol
         if o == '-v':
             Verbose= True
-
+        if o == '-C':
+            if a == 'MSR':
+                CVV = MSR
+            elif a == 'MCHIP':
+                CVV = MCHIP
 except getopt.GetoptError:
     # -h will cause an exception as it doesn't exist!
     printhelp()
@@ -137,7 +146,6 @@ try:
         x = 0
         while x < (len(pdol)): 
             tagstart = x 
-            x += 1
             if (pdol[x] & TLV_TAG_NUMBER_MASK) == TLV_TAG_NUMBER_MASK:
                 x += 1
                 while pdol[x] & TLV_TAG_MASK:
@@ -151,10 +159,70 @@ try:
             tags = int(tags,16) 
             pdollist.append(tags) 
             x += 1
-        get_processing_options(pdollist, cardservice)
-        compute_cryptographic_checksum(0, cardservice) 
+        ret, response = get_processing_options(pdollist,cardservice)
+        decode_processing_options(response,cardservice)
+
+        if CVV == MSR:  
+            response = compute_cryptographic_checksum(0, cardservice) 
+            decode_pse(response) 
+            ret, response = read_record(1,1,cardservice)    
+            decode_pse(response) 
+            status, length, ktrack1 = get_tag(response,0x9f63)
+            status, length, ttrack1 = get_tag(response,0x9f64)
+            status, length, ktrack2 = get_tag(response,0x9f66)
+            status, length, ttrack2 = get_tag(response,0x9f67)
+            d['T1_UNSize'] = calculate_UNsize(listtoint(ktrack1), listtoint(ttrack1))
+            d['T2_UNSize'] = calculate_UNsize(listtoint(ktrack2), listtoint(ttrack2))
+            print "{green}Track 1 UN Size:\t{yellow}{T1_UNSize}{white}".format(**d)  
+            print "{green}Track 2 UN Size:\t{yellow}{T2_UNSize}{white}".format(**d)  
+            #print calculate_UNsize(ktrack2, ttrack2)
+        if CVV == MCHIP:
+            print "RECORD 2 1" 
+            ret, response = read_record(2,1,cardservice)    
+            decode_pse(response)
+            status, length, cvmlist = get_tag(response,0x8e)
+            decodeCVM(cvmlist)
+            status, length, cdol1 = get_tag(response,0x8c)
+            print "RECORD 3 1" 
+            ret, response = read_record(3,1,cardservice) 
+            decode_pse(response)
+            print "RECORD 3 2" 
+            ret, response = read_record(3,2,cardservice) 
+            decode_pse(response)
+            ret, response = read_record(4,1,cardservice) 
+            decode_pse(response)
+            ret, response = read_record(4,2,cardservice) 
+            decode_pse(response)
+            ICCun = get_challenge(cardservice) #ICC random num
+            TRANS_VAL[0x9f4c] = ICCun
+            print ICCun 
+            #generate CDOL list
+            cdol1list = list() 
+            x = 0
+            while x < (len(cdol1)): 
+                tag = '' 
+                tagstart = x 
+                if (cdol1[x] & TLV_TAG_NUMBER_MASK) == TLV_TAG_NUMBER_MASK:
+                    x += 1
+                    #while cdol1[x] & TLV_TAG_MASK:
+                    #    x += 1
+                x += 1
+                taglen = x 
+                tag = cdol1[tagstart:taglen]  
+                #tags = map(hex, tag)
+                tags = ["{0:02X}".format(item) for item in tag]
+                tags = ''.join(tags)
+                tags = int(tags,16) 
+                cdol1list.append(tags) 
+                x += 1  
+            response = generate_ac(ARQC,True,cdol1list,cardservice)
+            decode_pse(response) 
+            #cdollist = list()
+            #status, length, pdol = get_tag(response,0x9F38)
+            #hexprint([ICCun])
+            #generate_ac(ARCQ, )
         #get_UNSize() 
-        bruteforce_files(cardservice) 
+        #bruteforce_files(cardservice) 
     else:
         print 'no PSE: %02x %02x' % (sw1,sw2)
 
