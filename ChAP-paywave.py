@@ -183,8 +183,8 @@ try:
         elif CVV == CVN17:
             TRANS_VALS[0x9f66] = [0x80, 0x80, 0x00, 0x00] #MSD, with cryptogram
         elif CVV == FDDA0:
-            TRANS_VALS[0x9f66] = [0x20, 0x80, 0x00, 0x00]  #qVSDC
-        elif CVV == FDDA0:
+            TRANS_VALS[0x9f66] = [0x20, 0x00, 0x00, 0x00]  #qVSDC
+        elif CVV == FDDA1:
             TRANS_VALS[0x9f66] = [0xB7, 0x80, 0x00, 0x00]
         if len(UN) > 0:
             TRANS_VALS[0x9F37] = [UN[0],UN[1],UN[2],UN[3]]
@@ -213,9 +213,16 @@ try:
             x += 1
         status, response = get_processing_options(pdollist,TRANS_VALS, cardservice)
         decode_processing_options(response, cardservice) 
-        if CVV == CVN17 | CVV == FDDA0 | CVV == FDDA1:
-            status,length,CTQdata = get_tag(response,0x9f06)     
-            print decodeCTQ(CTQdata)
+        status,length,CTQdata = get_tag(response,0x9f6c)     
+        if(CTQdata != ""): 
+            if (CVV == CVN17) | (CVV == FDDA0) | (CVV == FDDA1):
+                print decodeCTQ(CTQdata)
+        if CVV == FDDA0:
+            status, response = read_record(1,1,cardservice)
+            decode_pse(response)    
+            status, response = read_record(2,1,cardservice)
+            decode_pse(response)    
+ 
         #bruteforce_files(cardservice) 
         #get_UNSize() 
     else:

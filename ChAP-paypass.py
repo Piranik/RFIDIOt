@@ -43,10 +43,15 @@ from colour import *
 MSR = 0
 MCHIP = 1
 
+#defines for DDA and SDA support
+SDA = 0
+DDA = 1
+authsupport = SDA #authsupport: var to hold what the card auth supports
+
 def printhelp():
     print '\nChAP-paypass.py - Chip And PIN in Python, paypass edition'
     print 'Ver 0.1c\n'
-    print 'usage:\n\n ChAP.py [options] [PIN]'
+    print 'usage:\n\n ChAP-paypass.py [options] [PIN]'
     print
     print 'If the optional numeric PIN argument is given, the PIN will be verified (note that this' 
     print 'updates the PIN Try Counter and may result in the card being PIN blocked).'
@@ -161,6 +166,10 @@ try:
             x += 1
         ret, response = get_processing_options(pdollist,cardservice)
         decode_processing_options(response,cardservice)
+        if response[2] & 0x20:
+            authsupport = DDA
+        elif response[2] & 0x40:
+            authsupport = SDA
 
         if CVV == MSR:  
             response = compute_cryptographic_checksum(0, cardservice) 
@@ -189,40 +198,37 @@ try:
             print "RECORD 3 2" 
             ret, response = read_record(3,2,cardservice) 
             decode_pse(response)
-            ret, response = read_record(4,1,cardservice) 
-            decode_pse(response)
-            ret, response = read_record(4,2,cardservice) 
-            decode_pse(response)
-            ICCun = get_challenge(cardservice) #ICC random num
-            TRANS_VAL[0x9f4c] = ICCun
-            print ICCun 
-            #generate CDOL list
-            cdol1list = list() 
-            x = 0
-            while x < (len(cdol1)): 
-                tag = '' 
-                tagstart = x 
-                if (cdol1[x] & TLV_TAG_NUMBER_MASK) == TLV_TAG_NUMBER_MASK:
+            if authsupport == DDA: 
+                print "RECORD 4 1" 
+                ret, response = read_record(4,1,cardservice) 
+                decode_pse(response)
+                print "RECORD 4 2" 
+                ret, response = read_record(4,2,cardservice) 
+                decode_pse(response)
+                ICCun = get_challenge(cardservice) #ICC random num
+                if(ICCun != None): 
+                    TRANS_VAL[0x9f4c] = ICCun
+                #generate CDOL list
+                cdol1list = list() 
+                x = 0
+                while x < (len(cdol1)): 
+                    tag = '' 
+                    tagstart = x 
+                    if (cdol1[x] & TLV_TAG_NUMBER_MASK) == TLV_TAG_NUMBER_MASK:
+                        x += 1
+                        #while cdol1[x] & TLV_TAG_MASK:
+                        #    x += 1
                     x += 1
-                    #while cdol1[x] & TLV_TAG_MASK:
-                    #    x += 1
-                x += 1
-                taglen = x 
-                tag = cdol1[tagstart:taglen]  
-                #tags = map(hex, tag)
-                tags = ["{0:02X}".format(item) for item in tag]
-                tags = ''.join(tags)
-                tags = int(tags,16) 
-                cdol1list.append(tags) 
-                x += 1  
-            response = generate_ac(ARQC,True,cdol1list,cardservice)
-            decode_pse(response) 
-            #cdollist = list()
-            #status, length, pdol = get_tag(response,0x9F38)
-            #hexprint([ICCun])
-            #generate_ac(ARCQ, )
-        #get_UNSize() 
-        #bruteforce_files(cardservice) 
+                    taglen = x 
+                    tag = cdol1[tagstart:taglen]  
+                    #tags = map(hex, tag)
+                    tags = ["{0:02X}".format(item) for item in tag]
+                    tags = ''.join(tags)
+                    tags = int(tags,16) 
+                    cdol1list.append(tags) 
+                    x += 1  
+                response = generate_ac(ARQC,True,cdol1list,cardservice)
+                decode_pse(response) 
     else:
         print 'no PSE: %02x %02x' % (sw1,sw2)
 

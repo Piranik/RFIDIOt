@@ -324,10 +324,10 @@ def isbinary(data):
 
 def decode_pse(data):
     "decode the main PSE select response"
-
-    index= 0
+    index = 0
     indent= ''
     out = ''
+    valuelength = 0 
     if OutputFiles:
         file= open('%s-PSE.HEX' % CurrentAID,'w')
         for n in range(len(data)):
@@ -364,21 +364,24 @@ def decode_pse(data):
         if TAGS[tag][2] == VALUE:
             itemlength= 1
             offset= 0
+            valuelength = 1
         else:
             if(data[index+taglen] & 0x80 == 0): 
                 itemlength = data[index + taglen]
-                offset= 1
+                offset = 1
                 d['itemlength'] = '(%d bytes):' % itemlength
                 print "{green}{itemlength}{white}".format(**d) 
+                valuelength = 1 
                 #print '(%d bytes):' % itemlength,
             else:
-                valuebytelen = data[index+taglen+1] & 0x7F
+                valuebytelen = data[index+taglen] & 0x7F
                 itemlength = 0 
                 for i in range(1,valuebytelen+1):
                     currentval = data[index+taglen+i]
                     itemlength = (itemlength << 8) + currentval   
-                offset = 2  
+                offset = 1 + valuebytelen
                 d['itemlength'] = '(%d bytes):' % itemlength
+                valuelength = valuebytelen + 1
                 print "{green}{itemlength}{white}".format(**d)
                 #print '(%d bytes):' % itemlength,
         # store CDOLs for later use
@@ -394,13 +397,13 @@ def decode_pse(data):
                 return
                 #decode_ber_tlv_field(data[index + taglen + offset:])
             if TAGS[tag][1] == BINARY or TAGS[tag][1] == VALUE:
-                    out += '%02x' % data[index + taglen + offset]
-                    #if TAGS[tag][2] != TEMPLATE or Verbose:
-                        #out += '%02x' % data[index + taglen + offset]
-                        #d['data'] = '%02x' % data[index + taglen + offset],
-                        #print "{yellow}{data}{white}".format(**d) 
-                        #out += '%02x' % data[index + taglen + offset]
-                        #print '%02x' % data[index + taglen + offset],
+                out += '%02x' % data[index + taglen + offset]
+                #if TAGS[tag][2] != TEMPLATE or Verbose:
+                #out += '%02x' % data[index + taglen + offset]
+                #d['data'] = '%02x' % data[index + taglen + offset],
+                #print "{yellow}{data}{white}".format(**d) 
+                #out += '%02x' % data[index + taglen + offset]
+                #print '%02x' % data[index + taglen + offset],
             else: 
                 if TAGS[tag][1] == NUMERIC:
                     out += '%02x' % data[index + taglen + offset]
@@ -429,9 +432,9 @@ def decode_pse(data):
 
         if TAGS[tag][2] == ITEM:
             #print "{cyan}{out}{white}".format(**d) 
-            index += data[index + taglen] + taglen + 1
+            index += data[index + taglen + (valuelength-1)] + taglen + valuelength 
         else:
-            index += taglen + 1
+            index += taglen + valuelength 
 #           if TAGS[tag][2] != VALUE:
 #               indent += '   ' 
     indent= ''
