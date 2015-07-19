@@ -24,7 +24,7 @@ You should have received a copy of the GNU Lesser General Public License
 along with scard-python; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 """
-
+import pdb
 from smartcard.CardType import AnyCardType
 from smartcard.CardRequest import CardRequest
 from smartcard.CardConnection import CardConnection
@@ -43,7 +43,7 @@ DCVV = 0
 CVN17 = 1
 FDDA0 = 2
 FDDA1 = 3
-
+VSDC = 4
 #setup for CVV generation
 #DCVV = 
 #CVN17 = 9F02, 9F37, 9F36, 9F10, amount, UN, ATC, Issuer app data.
@@ -121,6 +121,8 @@ try:
                 CVV = FDDA0 
             elif a == 'fDDA1':        
                 CVV = FDDA1
+            elif a == 'VSDC':
+                CVV = VSDC 
         if o == '-R':
             UNstring = "%08x"%int(a)
             UN.append(int(UNstring[0:2]))
@@ -186,6 +188,8 @@ try:
             TRANS_VALS[0x9f66] = [0x20, 0x00, 0x00, 0x00]  #qVSDC
         elif CVV == FDDA1:
             TRANS_VALS[0x9f66] = [0xB7, 0x80, 0x00, 0x00]
+        elif CVV == VSDC:
+            TRANS_VALS[0x9f66] = [0x40, 0x80, 0x00, 0x00]
         if len(UN) > 0:
             TRANS_VALS[0x9F37] = [UN[0],UN[1],UN[2],UN[3]]
         if len(countrycode) > 0:
@@ -217,13 +221,51 @@ try:
         if(CTQdata != ""): 
             if (CVV == CVN17) | (CVV == FDDA0) | (CVV == FDDA1):
                 print decodeCTQ(CTQdata)
-        if CVV == FDDA0:
+        if (CVV == FDDA0) | (CVV == VSDC):
+            print "RECORD 1 1" 
             status, response = read_record(1,1,cardservice)
             decode_pse(response)    
+            print "RECORD 2 1" 
             status, response = read_record(2,1,cardservice)
             decode_pse(response)    
- 
-        #bruteforce_files(cardservice) 
+            print "RECORD 2 2" 
+            status, response = read_record(2,2,cardservice)
+            decode_pse(response)    
+            print "RECORD 2 3" 
+            status, response = read_record(2,3,cardservice)
+            decode_pse(response) 
+            print "RECORD 2 4" 
+            status, response = read_record(2,4,cardservice)
+            decode_pse(response)    
+            #get the tags for the CDOL 
+            status, length, ddol1 = get_tag(response,0x9f49)
+            print "RECORD 3 1" 
+            status, response = read_record(3,1,cardservice)
+            decode_pse(response)    
+            print "RECORD 3 2" 
+            status, response = read_record(3,2,cardservice)
+            decode_pse(response)    
+            if CVV == VSDC: 
+                ddol1list = list() 
+                x = 0
+                while x < (len(ddol1)): 
+                    tag = '' 
+                    tagstart = x 
+                    if (ddol1[x] & TLV_TAG_NUMBER_MASK) == TLV_TAG_NUMBER_MASK:
+                        x += 1
+                        #while ddol1[x] & TLV_TAG_MASK:
+                        #    x += 1
+                    x += 1
+                    taglen = x 
+                    tag = ddol1[tagstart:taglen]  
+                    #tags = map(hex, tag)
+                    tags = ["{0:02X}".format(item) for item in tag]
+                    tags = ''.join(tags)
+                    tags = int(tags,16) 
+                    ddol1list.append(tags) 
+                    x += 1  
+                response = internal_authenticate(ddol1list,cardservice)
+                decode_pse(response)#bruteforce_files(cardservice) 
         #get_UNSize() 
     else:
         print 'no PSE: %02x %02x' % (sw1,sw2)

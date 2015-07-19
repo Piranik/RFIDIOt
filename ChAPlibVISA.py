@@ -86,6 +86,17 @@ KNOWN_AIDS=     [
             ['Alias AID',0xa0,0x00,0x00,0x00,0x29,0x10,0x10],
             ]
 
+TRANS_VALS= {
+       0x9f02:[0x00,0x00,0x00,0x00,0x00,0x01],
+       0x9f03:[0x00,0x00,0x00,0x00,0x00,0x00],
+       0x9f1a:[0x08,0x26],
+       0x95:[0x00,0x00,0x00,0x00,0x00],
+       0x5f2a:[0x08,0x26],
+       0x9a:[0x08,0x04,0x01],
+       0x9c:[0x01],
+       0x9f37:[0xba,0xdf,0x00,0x0d],
+       0x9f66:[0xD7,0x20,0xC0,0x00]   #TTQ    
+}
 # Master Data File for PSE
 DF_PSE = [0x32, 0x50, 0x41, 0x59, 0x2E, 0x53, 0x59, 0x53, 0x2E, 0x44, 0x44, 0x46, 0x30, 0x31]
 
@@ -94,6 +105,7 @@ AAC= 0
 TC= 0x40
 ARQC= 0x80
 GENERATE_AC= [0x80,0xae]
+INTERNAL_AUTHENTICATE = [0x00,0x88]
 GET_CHALLENGE= [0x00,0x84,0x00]
 GET_DATA = [0x80, 0xca]
 GET_PROCESSING_OPTIONS = [0x80,0xa8,0x00,0x00]
@@ -134,8 +146,8 @@ TAGS=   {
     0x87:['Application Priority Indicator',BER_TLV,ITEM],
     0x88:['Short File Identifier',BINARY,ITEM],
     0x8a:['Authorisation Response Code',BINARY,VALUE],
-    0x8c:['Card Risk Management Data Object List 1 (CDOL1)',BINARY,TEMPLATE],
-    0x8d:['Card Risk Management Data Object List 2 (CDOL2)',BINARY,TEMPLATE],
+    0x8c:['Card Risk Management Data Object List 1 (CDOL1)',BINARY,ITEM],
+    0x8d:['Card Risk Management Data Object List 2 (CDOL2)',BINARY,ITEM],
     0x8e:['Cardholder Verification Method (CVM) List',BINARY,ITEM],
     0x8f:['Certification Authority Public Key Index',BINARY,ITEM],
     0x90:['Issuer Public Key Certificate',BINARY,ITEM],
@@ -180,6 +192,8 @@ TAGS=   {
     0x9f42:['Application Currency Code',NUMERIC,ITEM],
     0x9f44:['Application Currency Exponent',NUMERIC,ITEM],
     0x9f46:['ICC Public Key Certificate', BINARY, ITEM], 
+    0x9f47:['ICC Public Key Exponent', BINARY, ITEM], 
+    0x9f49:['Dynamic Data Object List(DDOL)', BINARY, ITEM], 
     0x9f4a:['Static Data Authentication Tag List',BINARY,ITEM],
     0x9f4d:['Log Entry',BINARY,ITEM],
     0x9f63:['Track 1 Bit Map for UN and ATC (PUNATCTRACK1)', BINARY, VALUE], 
@@ -561,13 +575,29 @@ def compute_cryptographic_checksum(un,cardservice):
     else:
         return False, ''
 
+def internal_authenticate(authdata, cardservice):
+    """
+    generate signed data 
+    """
+    P1 = 0x00
+    P2 = 0x00
+    le = 0x00
+    lc = len(authdata) 
+    apdu = INTERNAL_AUTHENTICATE + [P1,P2,lc] + authdata + [le]
+    response, sw1, sw2= send_apdu(apdu,cardservice)
+    if check_return(sw1,sw2):
+        print 'SDAD generated!'
+        return response 
+    else:
+        hexprint([sw1,sw2])
+
 def bruteforce_files(cardservice):
     # now try and brute force records
     print '  Checking for files:'
     #for y in range(1,31):
-    for y in range(1,5):
+    for y in range(1,6):
         #for x in range(1,256):
-        for x in range(1,5):
+        for x in range(1,6):
             ret, response= read_record(y,x,cardservice)
             if ret:
                 print "  Record %02x, File %02x: length %d" % (x,y,len(response))
@@ -796,17 +826,33 @@ def update_pin_try_counter(tries):
     tag= 0x91 # Issuer Authentication Data
     lc= len(csu) + 1
 
-def generate_ac(type):
-    # generate an application Cryptogram
-    if type == TC:
-        # populate data with CDOL1
-        print 
-    apdu= GENERATE_AC + [lc,type] + data + [le]
-    le= 0x00
-    response, sw1, sw2= send_apdu(apdu)
+def generate_ac(type,acgen, cdollist, cardservice):
+    """
+    generate an application Cryptogram
+    type = AAC, TC or ARQC
+    acgen  = true(DDA/AC requested)/false
+    """
+    P1 = 0x00  
+    if type == AAC:
+        P1 = P1 | 0x00
+    elif type == TC:
+        P1 = P1 | 0x40
+    elif type == ARQC:
+        P1 = P1 | 0x80
+    if acgen == False:
+        P1 = P1 | 0x00
+    if acgen == True:
+        P1 = P1 | 0x10
+    le = 0x00
+    cdoldata = list() 
+    for x in cdollist:
+        cdoldata.extend(TRANS_VAL[x])
+    lc = len(cdoldata) 
+    apdu = GENERATE_AC + [P1,0x00,lc] + cdoldata + [le]
+    response, sw1, sw2= send_apdu(apdu,cardservice)
     if check_return(sw1,sw2):
         print 'AC generated!'
-        return True
+        return response 
     else:
         hexprint([sw1,sw2])
 

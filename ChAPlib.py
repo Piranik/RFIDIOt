@@ -95,6 +95,7 @@ AAC= 0
 TC= 0x40
 ARQC= 0x80
 GENERATE_AC= [0x80,0xae]
+INTERNAL_AUTHENTICATE = [0x00,0x88]
 GET_CHALLENGE= [0x00,0x84,0x00,0x00]
 GET_DATA = [0x80, 0xca]
 GET_PROCESSING_OPTIONS = [0x80,0xa8,0x00,0x00]
@@ -175,6 +176,7 @@ TAGS=   {
     0x9f1a:['Terminal Country Code',BINARY,VALUE],
     0x9f1f:['Track 1 Discretionary Data',TEXT,ITEM],
     0x9f20:['Track 2 Discretionary Data',TEXT,ITEM],
+    0x9f21:['Transaction Time', BINARY, ITEM], 
     0x9f26:['Application Cryptogram',BINARY,ITEM],
     0x9f27:['Cryptogram Information Data',BINARY,ITEM],
     0x9f32:['Issuer Public Key Exponent',BINARY,ITEM],
@@ -260,6 +262,8 @@ TRANS_VAL= {
        #0x9f66:[0xD7,0x20,0xC0,0x00],
        0x91:[0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00], #Issuer Authentication Data
        0x8a:[0x00,0x00], #Authorisation Response Code
+       0x9f21:[0x01,0x01,0x01], #transaction time
+       0x9f7c:[0x00] * 0x14,
 }
 
    
@@ -802,6 +806,22 @@ def generate_ac(type,acgen, cdollist, cardservice):
     response, sw1, sw2= send_apdu(apdu,cardservice)
     if check_return(sw1,sw2):
         print 'AC generated!'
+        return response 
+    else:
+        hexprint([sw1,sw2])
+
+def internal_authenticate(authdata, cardservice):
+    """
+    generate signed data 
+    """
+    P1 = 0x00
+    P2 = 0x00
+    le = 0x00
+    lc = len(authdata) 
+    apdu = INTERNAL_AUTHENTICATE + [P1,P2,lc] + authdata + [le]
+    response, sw1, sw2= send_apdu(apdu,cardservice)
+    if check_return(sw1,sw2):
+        print 'SDAD generated!'
         return response 
     else:
         hexprint([sw1,sw2])

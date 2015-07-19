@@ -24,7 +24,7 @@ You should have received a copy of the GNU Lesser General Public License
 along with scard-python; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 """
-
+#import pdb
 from smartcard.CardType import AnyCardType
 from smartcard.CardRequest import CardRequest
 from smartcard.CardConnection import CardConnection
@@ -46,6 +46,7 @@ MCHIP = 1
 #defines for DDA and SDA support
 SDA = 0
 DDA = 1
+CDA = 2
 authsupport = SDA #authsupport: var to hold what the card auth supports
 
 def printhelp():
@@ -166,11 +167,13 @@ try:
             x += 1
         ret, response = get_processing_options(pdollist,cardservice)
         decode_processing_options(response,cardservice)
-        if response[2] & 0x20:
+        print map(hex,response) 
+        if response[4] & 0x20:
             authsupport = DDA
-        elif response[2] & 0x40:
+        elif response[4] & 0x40:
             authsupport = SDA
-
+        elif response[4] & 0x01:
+            authsupport = CDA
         if CVV == MSR:  
             response = compute_cryptographic_checksum(0, cardservice) 
             decode_pse(response) 
@@ -198,7 +201,7 @@ try:
             print "RECORD 3 2" 
             ret, response = read_record(3,2,cardservice) 
             decode_pse(response)
-            if authsupport == DDA: 
+            if (authsupport == DDA) | (authsupport == CDA): 
                 print "RECORD 4 1" 
                 ret, response = read_record(4,1,cardservice) 
                 decode_pse(response)
@@ -227,6 +230,7 @@ try:
                     tags = int(tags,16) 
                     cdol1list.append(tags) 
                     x += 1  
+                print "Generating Application Cryptogram" 
                 response = generate_ac(ARQC,True,cdol1list,cardservice)
                 decode_pse(response) 
     else:
