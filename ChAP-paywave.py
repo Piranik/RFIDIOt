@@ -216,7 +216,6 @@ try:
             pdollist.append(tags) 
             x += 1
         status, response = get_processing_options(pdollist,TRANS_VALS, cardservice)
-        decode_processing_options(response, cardservice) 
         status,length,CTQdata = get_tag(response,0x9f6c)     
         if(CTQdata != ""): 
             if (CVV == CVN17) | (CVV == FDDA0) | (CVV == FDDA1):

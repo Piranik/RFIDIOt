@@ -625,7 +625,7 @@ def get_processing_options(pdollist,transvalues, cardservice):
         for x in pdollist:
             pdoldata.extend(transvalues[x])
         pdoldata[1] = len(pdoldata)-2 
-        apdu =  GET_PROCESSING_OPTIONS + [len(pdoldata)] + pdoldata 
+        apdu =  GET_PROCESSING_OPTIONS + [len(pdoldata)] + pdoldata + [0x00]
     response, sw1, sw2= send_apdu(apdu, cardservice)
     if check_return(sw1,sw2):
         return True, response

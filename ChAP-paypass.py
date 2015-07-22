@@ -146,6 +146,7 @@ try:
         #get the returned AID 
         status, length, AID = get_tag(response,0x4F)
         status, response, sw1, sw2 = select_aid(AID, cardservice) 
+        decode_pse(response)
         status, length, pdol = get_tag(response,0x9F38)
         #get processing options 
         pdollist = list() 
@@ -165,7 +166,11 @@ try:
             tags = int(tags,16) 
             pdollist.append(tags) 
             x += 1
-        ret, response = get_processing_options(pdollist,cardservice)
+        if CVV == EMV: 
+            pdollist = []
+            ret, response = get_processing_options(pdollist,cardservice)
+        else:
+            ret, response = get_processing_options(pdollist,cardservice)
         decode_processing_options(response,cardservice)
         print map(hex,response) 
         if response[4] & 0x20:
