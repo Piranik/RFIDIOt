@@ -183,7 +183,6 @@ try:
         status, length, pdol = get_tag(response,0x9F38)
         print 'Processing Data Options List='
         decode_DOL(pdol)      
-        bruteforce_files(cardservice) 
         #get processing options 
         if CVV == DCVV:
             TRANS_VALS[0x9f66] = [0x80, 0x00, 0x00, 0x00] #MSD required, no cryptogram
@@ -227,7 +226,14 @@ try:
         if(CTQdata != ""): 
             if (CVV == CVN17) | (CVV == FDDA0) | (CVV == FDDA1) | (CVV == VSDC):
                 print decodeCTQ(CTQdata)
-        if (CVV == FDDA0) | (CVV == VSDC):
+        if (CVV == DCVV) | (CVV == CVN17):
+            print "RECORD 1 1" 
+            status, response = read_record(1,1,cardservice)
+            decode_pse(response)    
+            #print "RECORD 1 2" 
+            #status, response = read_record(1,2,cardservice)
+            #decode_pse(response)
+        elif (CVV == FDDA0) | (CVV == VSDC):
             print "RECORD 1 1" 
             status, response = read_record(1,1,cardservice)
             decode_pse(response)    
