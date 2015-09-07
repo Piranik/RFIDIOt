@@ -47,6 +47,7 @@ import struct
 from rfidiot.iso3166 import ISO3166CountryCodes
 from colour import *
 
+#import pdb #python debugger 
 # default global options
 BruteforcePrimitives= False
 BruteforceFiles= False
@@ -196,6 +197,9 @@ TAGS=   {
     0x9f49:['Dynamic Data Object List(DDOL)', BINARY, ITEM], 
     0x9f4a:['Static Data Authentication Tag List',BINARY,ITEM],
     0x9f4d:['Log Entry',BINARY,ITEM],
+    0x9f4e:['Merchant Name and Location', TEXT, ITEM], 
+    0x9f5a:['Application Program Identifier (Program ID)', BINARY, ITEM], 
+    0x9f6e:['Third Party Data', BINARY, ITEM], 
     0x9f63:['Track 1 Bit Map for UN and ATC (PUNATCTRACK1)', BINARY, VALUE], 
     0x9f64:['Track 1 Nr of ATC Digits (NATCTRACK1)', BINARY, VALUE],
     0x9f65:['Track 2 Bit Map for CVC3 (PCVC3TRACK2)', BINARY, VALUE],
@@ -615,6 +619,7 @@ def get_processing_options(pdollist,transvalues, cardservice):
     transvalues - values to lookup
     cardservice - driver to use
     """ 
+    #pdb.set_trace() 
     #generate pdol data
     if(len(pdollist) == 0):
         apdu = GET_PROCESSING_OPTIONS + [0x02, 0x83, 0x00, 0x00]
@@ -638,7 +643,7 @@ def decode_DOL(data):
     while i < len(data):
         tag = data[i] 
         i += 1
-        if (data[0] & TLV_TAG_NUMBER_MASK) == TLV_TAG_NUMBER_MASK:
+        if (data[i-1] & TLV_TAG_NUMBER_MASK) == TLV_TAG_NUMBER_MASK:
             tag = tag << 8 
             while (data[i] & TLV_TAG_MASK) == TLV_TAG_MASK:
                 tag = tag << 8 

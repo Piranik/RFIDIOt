@@ -38,6 +38,8 @@ from operator import *
 from rfidiot.iso3166 import ISO3166CountryCodes
 from ChAPlibVISA import * 
 
+#import pdb
+
 #defines for CVV generation technique
 DCVV = 0
 CVN17 = 1
@@ -53,15 +55,17 @@ VSDC = 4
 #hardcoded list of values for a transaction
 
 TRANS_VALS= {
-       0x9f02:[0x00,0x00,0x00,0x00,0x00,0x01],
-       0x9f03:[0x00,0x00,0x00,0x00,0x00,0x00],
+       0x9f02:[0x11,0x11,0x11,0x11,0x11,0x11],
+       0x9f03:[0x11,0x11,0x11,0x11,0x11,0x11],
+       #0x9f03:[0x00,0x00,0x00,0x00,0x00,0x00],
        0x9f1a:[0x08,0x26],
        0x95:[0x00,0x00,0x00,0x00,0x00],
        0x5f2a:[0x08,0x26],
        0x9a:[0x08,0x04,0x01],
        0x9c:[0x01],
        0x9f37:[0xba,0xdf,0x00,0x0d],
-       0x9f66:[0xD7,0x20,0xC0,0x00]   #TTQ    
+       0x9f66:[0xD7,0x20,0xC0,0x00],   #TTQ    
+       0x9f4e:[0x61,0x20,0x74,0x65,0x72,0x6d,0x69,0x6e,0x61,0x6c,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00] #merchant name
 }
 
 def printpaywavehelp():
@@ -122,7 +126,7 @@ try:
             elif a == 'fDDA1':        
                 CVV = FDDA1
             elif a == 'VSDC':
-                CVV = VSDC 
+                CVV = VSDC
         if o == '-R':
             UNstring = "%08x"%int(a)
             UN.append(int(UNstring[0:2]))
@@ -179,6 +183,7 @@ try:
         status, length, pdol = get_tag(response,0x9F38)
         print 'Processing Data Options List='
         decode_DOL(pdol)      
+        bruteforce_files(cardservice) 
         #get processing options 
         if CVV == DCVV:
             TRANS_VALS[0x9f66] = [0x80, 0x00, 0x00, 0x00] #MSD required, no cryptogram
@@ -200,13 +205,15 @@ try:
         pdollist = list() 
         x = 0
         while x < (len(pdol)): 
+            #pdb.set_trace() 
             tagstart = x 
             x += 1
-            if (pdol[x] & TLV_TAG_NUMBER_MASK) == TLV_TAG_NUMBER_MASK:
+            if (pdol[x-1] & TLV_TAG_NUMBER_MASK) == TLV_TAG_NUMBER_MASK:
                 x += 1
                 while pdol[x] & TLV_TAG_MASK:
                     x += 1
-            x += 1
+            #tag = pdol[tagstart:x] 
+            #x += 1
             taglen = x 
             tag = pdol[tagstart:taglen]  
             #tags = map(hex, tag)
@@ -218,7 +225,7 @@ try:
         status, response = get_processing_options(pdollist,TRANS_VALS, cardservice)
         status,length,CTQdata = get_tag(response,0x9f6c)     
         if(CTQdata != ""): 
-            if (CVV == CVN17) | (CVV == FDDA0) | (CVV == FDDA1):
+            if (CVV == CVN17) | (CVV == FDDA0) | (CVV == FDDA1) | (CVV == VSDC):
                 print decodeCTQ(CTQdata)
         if (CVV == FDDA0) | (CVV == VSDC):
             print "RECORD 1 1" 
@@ -265,7 +272,6 @@ try:
                     x += 1  
                 response = internal_authenticate(ddol1list,cardservice)
                 decode_pse(response)#bruteforce_files(cardservice) 
-        #get_UNSize() 
     else:
         print 'no PSE: %02x %02x' % (sw1,sw2)
 
